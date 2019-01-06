@@ -1,17 +1,32 @@
 import React, { Component } from "react"
 
 import {
+  AsyncStorage,
   Button,
   ScrollView,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from "react-native"
 
 class App extends Component {
   state = {
     podcasts: undefined,
+    subscriptions: [],
     terms: undefined,
+  }
+
+  async componentDidMount() {
+    const subscriptions = await AsyncStorage.getItem(
+      "subscriptions",
+    )
+
+    this.setState({
+      subscriptions: subscriptions
+        ? JSON.parse(subscriptions)
+        : [],
+    })
   }
 
   render() {
@@ -44,10 +59,6 @@ class App extends Component {
     )
   }
 
-  state = {
-    terms: undefined,
-  }
-
   onChangeTerms = e => {
     this.setState({ terms: e.nativeEvent.text })
   }
@@ -66,7 +77,7 @@ class App extends Component {
   }
 
   renderPodcasts = () => {
-    const { podcasts } = this.state
+    const { podcasts, subscriptions } = this.state
 
     if (podcasts === undefined) {
       return null
@@ -82,6 +93,10 @@ class App extends Component {
       )
     }
 
+    const subscriptionIds = subscriptions.map(
+      podcast => podcast.collectionId,
+    )
+
     return (
       <ScrollView
         style={{
@@ -90,12 +105,59 @@ class App extends Component {
           height: "50%",
         }}
       >
-        {podcasts.map(podcast => (
-          <View key={podcast.collectionId}>
-            <Text>{podcast.collectionName}</Text>
-          </View>
-        ))}
+        {podcasts.map(podcast =>
+          this.renderPodcast(
+            podcast,
+            subscriptionIds.includes(podcast.collectionId),
+          ),
+        )}
       </ScrollView>
+    )
+  }
+
+  renderPodcast = (podcast, isSubscribed) => {
+    return (
+      <TouchableOpacity
+        key={podcast.collectionId}
+        onPress={() => {
+          if (isSubscribed) {
+            return
+          }
+
+          this.onPressAvailablePodcast(podcast)
+        }}
+      >
+        <View
+          style={{
+            paddingTop: 10,
+            paddingBottom: 10,
+          }}
+        >
+          <Text
+            style={{
+              color: isSubscribed ? "#e0e0e0" : "#007afb",
+              fontSize: 18,
+            }}
+          >
+            {podcast.collectionName}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    )
+  }
+
+  onPressAvailablePodcast = async podcast => {
+    const { subscriptions: previous } = this.state
+
+    const subscriptions = [...previous, podcast]
+
+    this.setState({
+      subscriptions,
+    })
+
+    await AsyncStorage.setItem(
+      "subscriptions",
+      JSON.stringify(subscriptions),
     )
   }
 }
