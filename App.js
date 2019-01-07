@@ -11,9 +11,14 @@ import {
   View,
 } from "react-native"
 
+import { DOMParser } from "xmldom"
+
 class App extends Component {
   state = {
     podcasts: undefined,
+    podcast: undefined,
+    podcastDocument: undefined,
+    track: undefined,
     subscriptions: [],
     terms: undefined,
     tab: "search",
@@ -76,9 +81,46 @@ class App extends Component {
     )
   }
 
-  onPressListenPodcast = podcast => {
-    alert(`Open ${podcast.collectionName}`)
+  onPressListenPodcast = async podcast => {
+    const result = await fetch(podcast.feedUrl)
+    const text = await result.text()
+
+    const podcastDocument = new DOMParser().parseFromString(
+      text,
+      "text/xml",
+    )
+
+    this.setState({ podcast, podcastDocument })
   }
+
+  onPressPodcastTrack = async track => {
+    const titles = Array.prototype.slice.call(
+      track.getElementsByTagName("title"),
+    )
+
+    alert(`Play ${titles[0].childNodes[0].nodeValue}`)
+  }
+
+  /*
+    <item>
+      <title>1 Underrated Comic Book Movies</title>
+      <itunes:title>1 Underrated Comic Book Movies</itunes:title>
+      <description><![CDATA[<p>Mr Sunday and Mason look at terrible comic book movies and any redeeming qualities they mayhave.</p>]]></description>
+      <itunes:summary>Mr Sunday and Mason look at terrible comic book movies and any redeeming qualities they may have.</itunes:summary>
+      <itunes:episodeType>full</itunes:episodeType>
+      <itunes:author>Planet Broadcasting</itunes:author>
+      <itunes:image href="https://www.omnycontent.com/d/clips/0e353d3f-11cf-44ca-b469-a6c000a35649/15a9b294-191e-4706-b917-a817006d5f59/477caccd-b25f-41fa-8862-a817006ee8ef/image.jpg?t=1508913839&amp;size=Large" />
+      <media:content url="https://omnystudio.com/d/clips/0e353d3f-11cf-44ca-b469-a6c000a35649/15a9b294-191e-4706-b917-a817006d5f59/477caccd-b25f-41fa-8862-a817006ee8ef/audio.mp3?utm_source=Podcast&amp;in_playlist=f59b3f65-8f22-4691-ac78-a817006d5f62&amp;t=1534082649" type="audio/mpeg">
+        <media:player url="https://omny.fm/shows/the-weekly-planet/1-underrated-comic-book-movies/embed" />
+      </media:content>
+      <media:content url="https://www.omnycontent.com/d/clips/0e353d3f-11cf-44ca-b469-a6c000a35649/15a9b294-191e-4706-b917-a817006d5f59/477caccd-b25f-41fa-8862-a817006ee8ef/image.jpg?t=1508913839&amp;size=Large" type="image/jpeg" />
+      <guid isPermaLink="false">299c9d78798e83388539a68a0244be11</guid>
+      <pubDate>Mon, 30 Sep 2013 11:33:00 +0000</pubDate>
+      <itunes:duration>01:07:16</itunes:duration>
+      <enclosure url="https://omnystudio.com/d/clips/0e353d3f-11cf-44ca-b469-a6c000a35649/15a9b294-191e-4706-b917-a817006d5f59/477caccd-b25f-41fa-8862-a817006ee8ef/audio.mp3?utm_source=Podcast&amp;in_playlist=f59b3f65-8f22-4691-ac78-a817006d5f62&amp;t=1534082649" length="48488331" type="audio/mpeg" />
+      <link>https://omny.fm/shows/the-weekly-planet/1-underrated-comic-book-movies</link>
+    </item>
+  */
 
   renderSearch() {
     return (
@@ -241,7 +283,7 @@ class App extends Component {
   }
 
   renderListen = () => {
-    const { subscriptions } = this.state
+    const { subscriptions, podcast } = this.state
 
     return (
       <View
@@ -261,11 +303,79 @@ class App extends Component {
             height: "50%",
           }}
         >
-          {subscriptions.map(podcast =>
-            this.renderListenPodcast(podcast),
-          )}
+          {podcast
+            ? this.renderPodcastTracks()
+            : subscriptions.map(podcast =>
+                this.renderListenPodcast(podcast),
+              )}
         </ScrollView>
       </View>
+    )
+  }
+
+  renderPodcastTracks = () => {
+    const { podcast, podcastDocument } = this.state
+
+    const items = podcastDocument.getElementsByTagName(
+      "item",
+    )
+
+    return (
+      <View>
+        <View
+          style={{
+            width: "100%",
+            height: 100,
+          }}
+        >
+          <Image
+            style={{
+              width: "100%",
+              height: "100%",
+            }}
+            resizeMode="cover"
+            source={{
+              uri: podcast.artworkUrl600,
+            }}
+          />
+        </View>
+        {Array.prototype.slice
+          .call(items)
+          .map(this.renderPodcastTrack)}
+      </View>
+    )
+  }
+
+  renderPodcastTrack = track => {
+    const links = Array.prototype.slice.call(
+      track.getElementsByTagName("link"),
+    )
+
+    const titles = Array.prototype.slice.call(
+      track.getElementsByTagName("title"),
+    )
+
+    return (
+      <TouchableOpacity
+        key={links[0].childNodes[0].nodeValue}
+        onPress={() => this.onPressPodcastTrack(track)}
+      >
+        <View
+          style={{
+            paddingTop: 10,
+            paddingBottom: 10,
+          }}
+        >
+          <Text
+            style={{
+              color: "#007afb",
+              fontSize: 18,
+            }}
+          >
+            {titles[0].childNodes[0].nodeValue}
+          </Text>
+        </View>
+      </TouchableOpacity>
     )
   }
 
